@@ -38,6 +38,14 @@ func NewStartCommand() *cobra.Command {
 			if err := runner.Start(); err != nil {
 				return fmt.Errorf("start failed: %w", err)
 			}
+
+			// Gather backend-specific info after successful start
+			if info := runner.Backend.GatherInfo(inst.WorkDir); len(info) > 0 {
+				if err := config.UpdateInstanceInfo(name, info); err != nil {
+					fmt.Printf("warning: failed to update instance info: %v\n", err)
+				}
+			}
+
 			fmt.Printf("Started %s\n", name)
 			return nil
 		},

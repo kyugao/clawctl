@@ -39,3 +39,7 @@ func (b *openclawBackend) Stop(_ InstanceInfo) error {
 func (b *openclawBackend) ResetWorkspace(_ InstanceInfo) error {
 	return ErrNotSupported
 }
+
+func (b *openclawBackend) GatherInfo(workDir string) map[string]any {
+	return nil
+}

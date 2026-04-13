@@ -58,6 +58,10 @@ type Backend interface {
 	// ResetWorkspace resets the workspace from templates (if supported).
 	// Returns ErrNotSupported if the backend doesn't support template reset.
 	ResetWorkspace(inst InstanceInfo) error
+
+	// GatherInfo returns backend-specific instance information (e.g., dashboard token).
+	// The returned map can contain arbitrary key-value pairs.
+	GatherInfo(workDir string) map[string]any
 }
 
 // backendEntry holds a backend with its name for registration.

@@ -205,3 +205,34 @@ func (b *picoclawBackend) ResetWorkspace(inst InstanceInfo) error {
 	}
 	return nil
 }
+
+// GatherInfo parses the gateway log and returns instance info (e.g., dashboard token).
+func (b *picoclawBackend) GatherInfo(workDir string) map[string]any {
+	info := make(map[string]any)
+
+	logPath := filepath.Join(workDir, ".gateway.log")
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		return info
+	}
+
+	// Parse dashboard token from log
+	// Format: "Dashboard token (this run): <token>"
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "Dashboard token") {
+			parts := strings.Split(line, "Dashboard token")
+			if len(parts) < 2 {
+				continue
+			}
+			tokenPart := strings.Split(parts[1], ":")
+			if len(tokenPart) >= 2 {
+				token := strings.TrimSpace(tokenPart[len(tokenPart)-1])
+				info["dashboard_token"] = token
+			}
+			break
+		}
+	}
+
+	return info
+}

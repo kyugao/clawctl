@@ -17,11 +17,12 @@ var defaultPorts = map[string]int{
 
 // Instance represents a single Claw instance.
 type Instance struct {
-	ClawType  string `json:"claw_type"`
-	WorkDir   string `json:"work_dir"`
-	Port      int    `json:"port"`
-	Version   string `json:"version"`
-	CreatedAt string `json:"created_at"`
+	ClawType  string         `json:"claw_type"`
+	WorkDir   string         `json:"work_dir"`
+	Port      int            `json:"port"`
+	Version   string         `json:"version"`
+	CreatedAt string         `json:"created_at"`
+	Info      map[string]any `json:"info,omitempty"`
 }
 
 // GetClawType returns the claw type.
@@ -185,4 +186,19 @@ func NewInstance(clawType string, name string, port int, version string, workDir
 		Version:   version,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
+}
+
+// UpdateInstanceInfo updates the info field for an existing instance.
+func UpdateInstanceInfo(name string, info map[string]any) error {
+	cfg, err := Load()
+	if err != nil {
+		return err
+	}
+	inst, ok := cfg.Instances[name]
+	if !ok {
+		return fmt.Errorf("instance %q not found", name)
+	}
+	inst.Info = info
+	cfg.Instances[name] = inst
+	return Save(cfg)
 }

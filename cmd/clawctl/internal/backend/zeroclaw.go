@@ -183,3 +183,7 @@ func (b *zeroclawBackend) Stop(inst InstanceInfo) error {
 func (b *zeroclawBackend) ResetWorkspace(_ InstanceInfo) error {
 	return ErrNotSupported
 }
+
+func (b *zeroclawBackend) GatherInfo(workDir string) map[string]any {
+	return nil
+}

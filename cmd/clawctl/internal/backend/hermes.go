@@ -228,3 +228,7 @@ func (b *hermesBackend) Stop(inst InstanceInfo) error {
 func (b *hermesBackend) ResetWorkspace(inst InstanceInfo) error {
 	return ErrNotSupported
 }
+
+func (b *hermesBackend) GatherInfo(workDir string) map[string]any {
+	return nil
+}
