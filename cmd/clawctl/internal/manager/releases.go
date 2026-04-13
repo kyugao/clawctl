@@ -12,6 +12,10 @@ import (
 
 // ListLocalVersions scans ~/.clawctl/claw_release/<type>/ and returns installed version names.
 func ListLocalVersions(clawType string) ([]string, error) {
+	// Special handling for hermes
+	if clawType == "hermes" {
+		return ListHermesVersions()
+	}
 	dir, err := config.ReleasesDir(clawType)
 	if err != nil {
 		return nil, err
@@ -65,6 +69,11 @@ func InstallVersion(clawType, version string) error {
 			fmt.Printf("Version %s is already installed at ~/.clawctl/claw_release/%s/%s/\n", tag, clawType, tag)
 			return nil
 		}
+	}
+
+	// Special handling for hermes (Python package)
+	if clawType == "hermes" {
+		return InstallHermesVersion(tag)
 	}
 
 	// Build release API URL for this specific tag.
@@ -132,6 +141,10 @@ func moveAndFilterBinaries(srcDir, destDir string, keepNames []string) error {
 
 // UninstallVersion removes a version directory.
 func UninstallVersion(clawType, version string) error {
+	// Special handling for hermes
+	if clawType == "hermes" {
+		return UninstallHermesVersion(version)
+	}
 	installDir, err := config.ReleasesDir(clawType)
 	if err != nil {
 		return err
@@ -150,6 +163,10 @@ func UninstallVersion(clawType, version string) error {
 // VersionBinaryPath returns the full path to a specific binary for a version.
 // Returns "" if the binary is not found.
 func VersionBinaryPath(clawType, version, binaryName string) (string, error) {
+	// Special handling for hermes
+	if clawType == "hermes" {
+		return FindHermesBinary(version)
+	}
 	installDir, err := config.ReleasesDir(clawType)
 	if err != nil {
 		return "", err

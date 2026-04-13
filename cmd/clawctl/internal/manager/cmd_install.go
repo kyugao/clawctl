@@ -22,7 +22,7 @@ func NewInstallCommand() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Installing %s %s from %s...\n", clawType, version, spec.Repo)
+			fmt.Printf("Installing %s %s from %s...\n", clawType, version, spec.Repo())
 
 			if err := InstallVersion(clawType, version); err != nil {
 				return fmt.Errorf("install failed: %w", err)
