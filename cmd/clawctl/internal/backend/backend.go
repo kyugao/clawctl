@@ -111,7 +111,7 @@ func isProcessRunning(pid int) bool {
 		return false
 	}
 	// Signal(0) checks existence on Unix without sending a signal.
-	err = p.Signal(os.Signal(nil))
+	err = p.Signal(syscall.Signal(0))
 	if err == nil {
 		return true
 	}
