@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/agent"
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/config"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 func NewStopCommand() *cobra.Command {
@@ -25,7 +25,7 @@ func NewStopCommand() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found", name)
 			}
-			if _, err := agent.Get(inst.ClawType); err != nil {
+			if _, err := backend.Get(inst.ClawType); err != nil {
 				return err
 			}
 

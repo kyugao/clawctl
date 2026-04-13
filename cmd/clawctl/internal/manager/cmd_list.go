@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/config"
-	"github.com/sipeed/picoclaw/pkg/pid"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 func NewListCommand() *cobra.Command {
@@ -25,9 +25,12 @@ func NewListCommand() *cobra.Command {
 			fmt.Fprintf(w, "NAME\tTYPE\tPORT\tVERSION\tSTATUS\tWORK_DIR\n")
 
 			for name, inst := range cfg.Instances {
+				be := backend.MustGet(inst.ClawType)
+				_, running, _ := be.IsRunning(inst.WorkDir)
 				status := "stopped"
-				if pidData := pid.ReadPidFileWithCheck(inst.WorkDir); pidData != nil {
-					status = fmt.Sprintf("running (PID %d)", pidData.PID)
+				if running {
+					pid, _, _ := be.IsRunning(inst.WorkDir)
+					status = fmt.Sprintf("running (PID %d)", pid)
 				}
 				marker := "  "
 				if name == cfg.Default {

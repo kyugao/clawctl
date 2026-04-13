@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/agent"
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/config"
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/manager"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/manager"
 )
 
 func main() {
@@ -57,7 +57,7 @@ func getInstanceOrFail(name string) (string, config.Instance) {
 		os.Exit(1)
 	}
 	// Validate claw_type is known.
-	if _, err := agent.Get(inst.ClawType); err != nil {
+	if _, err := backend.Get(inst.ClawType); err != nil {
 		printErr("instance %q has unknown claw_type %q: %v", name, inst.ClawType, err)
 		os.Exit(1)
 	}

@@ -6,9 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/agent"
 )
+
+// defaultPorts maps claw types to their default ports.
+var defaultPorts = map[string]int{
+	"picoclaw": 18790,
+	"openclaw": 18791,
+	"zero":     18792,
+}
 
 // Instance represents a single Claw instance.
 type Instance struct {
@@ -19,10 +24,22 @@ type Instance struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// GetClawType returns the claw type.
+func (i Instance) GetClawType() string { return i.ClawType }
+
+// GetWorkDir returns the work directory.
+func (i Instance) GetWorkDir() string { return i.WorkDir }
+
+// GetPort returns the gateway port.
+func (i Instance) GetPort() int { return i.Port }
+
+// GetVersion returns the version string.
+func (i Instance) GetVersion() string { return i.Version }
+
 // Config is the top-level clawctl configuration file.
 type Config struct {
 	Instances map[string]Instance `json:"-"`
-	Default   string             `json:"default"`
+	Default   string               `json:"default"`
 }
 
 // clawctlConfigPath returns the path to ~/.clawctl/config.json.
@@ -159,7 +176,7 @@ func NewInstance(clawType string, name string, port int, version string, workDir
 		workDir, _ = InstanceWorkDir(name)
 	}
 	if port == 0 {
-		port = agent.MustGet(clawType).DefaultPort
+		port = defaultPorts[clawType]
 	}
 	return Instance{
 		ClawType:  clawType,

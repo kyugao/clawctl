@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/config"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 func NewInfoCommand() *cobra.Command {

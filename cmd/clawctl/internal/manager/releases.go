@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/agent"
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/config"
-	"github.com/sipeed/picoclaw/pkg/updater"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 // ListLocalVersions scans ~/.clawctl/claw_release/<type>/ and returns installed version names.
@@ -48,13 +47,13 @@ func ResolveVersion(repo, version string) (string, error) {
 
 // InstallVersion downloads and installs a specific version to ~/.clawctl/claw_release/<type>/<version>/.
 func InstallVersion(clawType, version string) error {
-	spec, err := agent.Get(clawType)
+	be, err := backend.Get(clawType)
 	if err != nil {
 		return err
 	}
 
 	// Resolve version alias.
-	tag, err := ResolveVersion(spec.Repo, version)
+	tag, err := ResolveVersion(be.Repo(), version)
 	if err != nil {
 		return fmt.Errorf("resolve version %q: %w", version, err)
 	}
@@ -69,10 +68,10 @@ func InstallVersion(clawType, version string) error {
 	}
 
 	// Build release API URL for this specific tag.
-	releaseURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", spec.Repo, tag)
+	releaseURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", be.Repo(), tag)
 
 	// Download and extract.
-	destDir, err := updater.DownloadAndExtractRelease(releaseURL, runtime.GOOS, runtime.GOARCH)
+	destDir, err := DownloadAndExtractRelease(releaseURL, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
 	}
@@ -89,7 +88,7 @@ func InstallVersion(clawType, version string) error {
 	}
 
 	// Move files from extracted dir to finalPath, filtering by BinaryNames.
-	if err := moveAndFilterBinaries(destDir, finalPath, spec.BinaryNames); err != nil {
+	if err := moveAndFilterBinaries(destDir, finalPath, be.BinaryNames()); err != nil {
 		return fmt.Errorf("install binaries: %w", err)
 	}
 

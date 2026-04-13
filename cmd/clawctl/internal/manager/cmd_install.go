@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/agent"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
 )
 
 func NewInstallCommand() *cobra.Command {
@@ -17,7 +17,7 @@ func NewInstallCommand() *cobra.Command {
 			clawType := args[0]
 			version := args[1]
 
-			spec, err := agent.Get(clawType)
+			spec, err := backend.Get(clawType)
 			if err != nil {
 				return err
 			}

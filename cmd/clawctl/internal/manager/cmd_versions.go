@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/agent"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
 )
 
 func NewVersionsCommand() *cobra.Command {
@@ -21,7 +21,7 @@ func NewVersionsCommand() *cobra.Command {
 			if clawType == "" {
 				clawType = "picoclaw"
 			}
-			spec, err := agent.Get(clawType)
+			spec, err := backend.Get(clawType)
 			if err != nil {
 				return err
 			}
@@ -52,9 +52,9 @@ func NewVersionsCommand() *cobra.Command {
 
 			// Remote section.
 			fmt.Println()
-			fmt.Fprintf(os.Stdout, "REMOTE (%s)\n", spec.Repo)
+			fmt.Fprintf(os.Stdout, "REMOTE (%s)\n", spec.Repo())
 
-			releases, err := FetchReleases(spec.Repo, 10)
+			releases, err := FetchReleases(spec.Repo(), 10)
 			if err != nil {
 				fmt.Fprintf(os.Stdout, "  (failed to fetch remote releases: %v)\n", err)
 				fmt.Fprintf(os.Stdout, "  (offline? run 'clawctl install %s <version>' to install a specific version)\n", clawType)
@@ -104,6 +104,6 @@ func NewVersionsCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&clawType, "type", "", fmt.Sprintf("Claw type (available: %s)", strings.Join(agent.KnownTypes(), ", ")))
+	cmd.Flags().StringVar(&clawType, "type", "", fmt.Sprintf("Claw type (available: %s)", strings.Join(backend.KnownTypes(), ", ")))
 	return cmd
 }

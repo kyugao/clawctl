@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/agent"
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/config"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 func NewStatusCommand() *cobra.Command {
@@ -26,7 +26,7 @@ func NewStatusCommand() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found", name)
 			}
-			spec, err := agent.Get(inst.ClawType)
+			spec, err := backend.Get(inst.ClawType)
 			if err != nil {
 				return err
 			}
@@ -41,7 +41,7 @@ func NewStatusCommand() *cobra.Command {
 			fmt.Printf("  Version: %s\n", inst.Version)
 			fmt.Printf("  Port:    %d\n", inst.Port)
 			fmt.Printf("  WorkDir: %s\n", inst.WorkDir)
-			fmt.Printf("  Binary:  %s\n", spec.GatewayBinary)
+			fmt.Printf("  Binary:  %s\n", spec.GatewayBinary())
 
 			if !running {
 				fmt.Printf("  Status:  stopped\n")

@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/config"
-	"github.com/sipeed/clawctl/cmd/clawctl/internal/onboard"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/backend"
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 func NewResetCommand() *cobra.Command {
@@ -25,13 +25,12 @@ func NewResetCommand() *cobra.Command {
 				return fmt.Errorf("instance %q not found", name)
 			}
 
-			// Only picoclaw types support template reset for now.
-			if inst.ClawType != "picoclaw" {
-				return fmt.Errorf("reset is only supported for picoclaw type (got %q)", inst.ClawType)
-			}
-
-			if err := onboard.CopyWorkspaceTemplates(inst.WorkDir); err != nil {
-				return fmt.Errorf("copy workspace templates: %w", err)
+			be := backend.MustGet(inst.ClawType)
+			if err := be.ResetWorkspace(inst); err != nil {
+				if err == backend.ErrNotSupported {
+					return fmt.Errorf("reset is not supported for %s type", inst.ClawType)
+				}
+				return fmt.Errorf("reset failed: %w", err)
 			}
 			fmt.Printf("Workspace templates reset for instance %q\n", name)
 			return nil
