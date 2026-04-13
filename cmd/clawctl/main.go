@@ -34,6 +34,7 @@ func main() {
 		manager.NewInstallCommand(),
 		manager.NewUninstallCommand(),
 		manager.NewTrashCommand(),
+		manager.NewLogsCommand(),
 	)
 
 	if err := root.Execute(); err != nil {
