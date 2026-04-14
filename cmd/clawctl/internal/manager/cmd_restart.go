@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -25,12 +26,17 @@ func NewRestartCommand() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found", name)
 			}
-			if _, err := backend.Get(inst.ClawType); err != nil {
+			if _, err := backend.Get(inst.GetClawType()); err != nil {
 				return err
 			}
 
 			// Stop first (ignore error if not running).
 			_ = Stop(inst)
+
+			inst, err = ReconcileInstanceForStart(context.Background(), cfg, inst)
+			if err != nil {
+				return fmt.Errorf("reconcile instance: %w", err)
+			}
 
 			runner, err := NewGatewayRunner(inst)
 			if err != nil {

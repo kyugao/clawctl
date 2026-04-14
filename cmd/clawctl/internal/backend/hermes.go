@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,16 +10,37 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 func init() {
-	Register("hermes", &hermesBackend{})
+	b := &hermesBackend{}
+	Register("hermes", BackendSpec{Backend: b, Configurator: b})
 }
 
 type hermesBackend struct{}
 
 // DefaultPort returns the default gateway port for hermes.
 func (b *hermesBackend) DefaultPort() int { return 8642 }
+
+func (b *hermesBackend) AllocateInstance(_ context.Context, cfg *config.Config, name string, explicitPort int, version, workDir string) (config.Instance, error) {
+	port := explicitPort
+	if port == 0 {
+		var err error
+		port, err = allocatePort(b.DefaultPort(), collectReservedPorts(cfg))
+		if err != nil {
+			return nil, err
+		}
+	} else if !isPortAvailable(port) {
+		return nil, fmt.Errorf("port %d is already in use", port)
+	}
+	return config.NewInstance("hermes", name, port, version, workDir), nil
+}
+
+func (b *hermesBackend) ReconcileInstance(_ context.Context, _ *config.Config, inst config.Instance) (config.Instance, bool, error) {
+	return inst, false, nil
+}
 
 func (b *hermesBackend) Repo() string { return "NousResearch/hermes-agent" }
 

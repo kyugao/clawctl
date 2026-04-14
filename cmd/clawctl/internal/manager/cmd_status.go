@@ -26,7 +26,7 @@ func NewStatusCommand() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found", name)
 			}
-			spec, err := backend.Get(inst.ClawType)
+			spec, err := backend.Get(inst.GetClawType())
 			if err != nil {
 				return err
 			}
@@ -37,11 +37,14 @@ func NewStatusCommand() *cobra.Command {
 			}
 
 			fmt.Printf("Instance: %s\n", name)
-			fmt.Printf("  Type:    %s\n", inst.ClawType)
-			fmt.Printf("  Version: %s\n", inst.Version)
-			fmt.Printf("  Port:    %d\n", inst.Port)
-			fmt.Printf("  WorkDir: %s\n", inst.WorkDir)
+			fmt.Printf("  Type:    %s\n", inst.GetClawType())
+			fmt.Printf("  Version: %s\n", inst.GetVersion())
+			fmt.Printf("  Port:    %d\n", inst.GetPort())
+			fmt.Printf("  WorkDir: %s\n", inst.GetWorkDir())
 			fmt.Printf("  Binary:  %s\n", spec.GatewayBinary())
+			for _, line := range instanceDetailLines(inst) {
+				fmt.Println(line)
+			}
 
 			if !running {
 				fmt.Printf("  Status:  stopped\n")
@@ -54,11 +57,10 @@ func NewStatusCommand() *cobra.Command {
 			}
 
 			// Show log file location if exists.
-			logPath := fmt.Sprintf("%s/.gateway.log", inst.WorkDir)
+			logPath := fmt.Sprintf("%s/.gateway.log", inst.GetWorkDir())
 			if _, err := os.Stat(logPath); err == nil {
 				fmt.Printf("  Log:     %s\n", logPath)
 			}
-
 			return nil
 		},
 	}

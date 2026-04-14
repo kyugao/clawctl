@@ -25,7 +25,7 @@ func NewStopCommand() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found", name)
 			}
-			if _, err := backend.Get(inst.ClawType); err != nil {
+			if _, err := backend.Get(inst.GetClawType()); err != nil {
 				return err
 			}
 

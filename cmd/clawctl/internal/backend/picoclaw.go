@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,16 +12,83 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 	"github.com/kyugao/clawctl/cmd/clawctl/internal/onboard"
 )
 
 func init() {
-	Register("picoclaw", &picoclawBackend{})
+	b := &picoclawBackend{}
+	Register("picoclaw", BackendSpec{Backend: b, Configurator: b})
 }
 
 type picoclawBackend struct{}
 
-func (b *picoclawBackend) Repo() string    { return "sipeed/picoclaw" }
+func (b *picoclawBackend) AllocateInstance(_ context.Context, cfg *config.Config, name string, explicitPort int, version, workDir string) (config.Instance, error) {
+	reserved := collectReservedPorts(cfg)
+
+	launcherPort := explicitPort
+	if launcherPort == 0 {
+		var err error
+		launcherPort, err = allocatePort(18800, reserved)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if _, exists := reserved[launcherPort]; exists {
+			return nil, fmt.Errorf("port %d is already reserved by another instance", launcherPort)
+		}
+		if !isPortAvailable(launcherPort) {
+			return nil, fmt.Errorf("port %d is already in use", launcherPort)
+		}
+	}
+	reserved[launcherPort] = struct{}{}
+
+	gatewayPort, err := allocatePort(18790, reserved)
+	if err != nil {
+		return nil, err
+	}
+
+	inst := config.NewInstance("picoclaw", name, launcherPort, version, workDir)
+	record := inst.AsRecord()
+	record.Info = config.SetInfoPath(record.Info, launcherPort, "ports", "launcher")
+	record.Info = config.SetInfoPath(record.Info, gatewayPort, "ports", "gateway")
+	return config.NewInstanceFromRecord(record), nil
+}
+
+func (b *picoclawBackend) ReconcileInstance(_ context.Context, cfg *config.Config, inst config.Instance) (config.Instance, bool, error) {
+	record := inst.AsRecord()
+	changed := false
+
+	if launcherPort, ok := config.GetInstanceInfoInt(inst, "ports", "launcher"); !ok || launcherPort != inst.GetPort() {
+		record.Info = config.SetInfoPath(record.Info, inst.GetPort(), "ports", "launcher")
+		changed = true
+	}
+
+	gatewayPort, ok := config.GetInstanceInfoInt(inst, "ports", "gateway")
+	if !ok || gatewayPort <= 0 {
+		reserved := collectReservedPortsExcept(cfg, inst.GetName())
+		reserved[inst.GetPort()] = struct{}{}
+		var err error
+		gatewayPort, err = allocatePort(18790, reserved)
+		if err != nil {
+			return nil, false, err
+		}
+		record.Info = config.SetInfoPath(record.Info, gatewayPort, "ports", "gateway")
+		changed = true
+	}
+
+	updatedInst := config.NewInstanceFromRecord(record)
+	configChanged, err := b.ensureConfigFile(updatedInst)
+	if err != nil {
+		return nil, false, err
+	}
+	if configChanged {
+		changed = true
+	}
+	return updatedInst, changed, nil
+}
+
+func (b *picoclawBackend) Repo() string { return "sipeed/picoclaw" }
 func (b *picoclawBackend) BinaryNames() []string {
 	return []string{"picoclaw", "picoclaw-launcher", "picoclaw-launcher-tui"}
 }
@@ -93,25 +161,8 @@ func (b *picoclawBackend) InitWorkDir(inst InstanceInfo) error {
 	if err := os.MkdirAll(filepath.Join(inst.GetWorkDir(), "skills"), 0o755); err != nil {
 		return fmt.Errorf("create skills: %w", err)
 	}
-	// Create default config.json if it doesn't exist.
-	configPath := filepath.Join(inst.GetWorkDir(), "config.json")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		defaultConfig := fmt.Sprintf(`{
-  "version": 2,
-  "agents": {
-    "defaults": {
-      "workspace": "%s/workspace",
-      "restrict_to_workspace": true,
-      "allow_read_outside_workspace": false
-    }
-  }
-}
-`, inst.GetWorkDir())
-		if err := os.WriteFile(configPath, []byte(defaultConfig), 0o644); err != nil {
-			return fmt.Errorf("write config.json: %w", err)
-		}
-	}
-	return nil
+	_, err := b.ensureConfigFile(inst)
+	return err
 }
 
 func (b *picoclawBackend) Start(inst InstanceInfo, binaryPath string) error {
@@ -232,11 +283,116 @@ func (b *picoclawBackend) GatherInfo(workDir string) map[string]any {
 			tokenPart := strings.Split(parts[1], ":")
 			if len(tokenPart) >= 2 {
 				token := strings.TrimSpace(tokenPart[len(tokenPart)-1])
-				info["dashboard_token"] = token
+				info = config.SetInfoPath(info, token, "runtime", "dashboard_token")
 			}
 			break
 		}
 	}
 
 	return info
+}
+
+func (b *picoclawBackend) ensureConfigFile(inst InstanceInfo) (bool, error) {
+	configPath := filepath.Join(inst.GetWorkDir(), "config.json")
+
+	var data map[string]any
+	if raw, err := os.ReadFile(configPath); err == nil {
+		if err := json.Unmarshal(raw, &data); err != nil {
+			return false, fmt.Errorf("parse config.json: %w", err)
+		}
+	} else if os.IsNotExist(err) {
+		data = map[string]any{
+			"version": 2,
+			"agents": map[string]any{
+				"defaults": map[string]any{
+					"workspace":                    filepath.Join(inst.GetWorkDir(), "workspace"),
+					"restrict_to_workspace":        true,
+					"allow_read_outside_workspace": false,
+				},
+			},
+		}
+	} else {
+		return false, fmt.Errorf("read config.json: %w", err)
+	}
+
+	changed := false
+
+	if version, ok := data["version"].(float64); !ok || int(version) != 2 {
+		data["version"] = 2
+		changed = true
+	}
+
+	agents, ok := data["agents"].(map[string]any)
+	if !ok || agents == nil {
+		agents = make(map[string]any)
+		data["agents"] = agents
+		changed = true
+	}
+	defaults, ok := agents["defaults"].(map[string]any)
+	if !ok || defaults == nil {
+		defaults = make(map[string]any)
+		agents["defaults"] = defaults
+		changed = true
+	}
+	workspacePath := filepath.Join(inst.GetWorkDir(), "workspace")
+	if defaults["workspace"] != workspacePath {
+		defaults["workspace"] = workspacePath
+		changed = true
+	}
+	if defaults["restrict_to_workspace"] != true {
+		defaults["restrict_to_workspace"] = true
+		changed = true
+	}
+	if defaults["allow_read_outside_workspace"] != false {
+		defaults["allow_read_outside_workspace"] = false
+		changed = true
+	}
+
+	gateway, ok := data["gateway"].(map[string]any)
+	if !ok || gateway == nil {
+		gateway = make(map[string]any)
+		data["gateway"] = gateway
+		changed = true
+	}
+
+	instance, ok := inst.(config.Instance)
+	if !ok {
+		return false, fmt.Errorf("picoclaw config requires config.Instance")
+	}
+	gatewayPort, ok := config.GetInstanceInfoInt(instance, "ports", "gateway")
+	if !ok || gatewayPort <= 0 {
+		return false, fmt.Errorf("picoclaw instance missing gateway port")
+	}
+	currentGatewayPort, hasGatewayPort := configNumberToInt(gateway["port"])
+	if !hasGatewayPort || currentGatewayPort != gatewayPort {
+		gateway["port"] = gatewayPort
+		changed = true
+	}
+
+	if !changed {
+		return false, nil
+	}
+	encoded, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return false, fmt.Errorf("marshal config.json: %w", err)
+	}
+	if err := os.WriteFile(configPath, encoded, 0o644); err != nil {
+		return false, fmt.Errorf("write config.json: %w", err)
+	}
+	return true, nil
+}
+
+func configNumberToInt(v any) (int, bool) {
+	switch typed := v.(type) {
+	case int:
+		return typed, true
+	case float64:
+		return int(typed), true
+	case json.Number:
+		n, err := typed.Int64()
+		if err == nil {
+			return int(n), true
+		}
+	}
+	return 0, false
 }

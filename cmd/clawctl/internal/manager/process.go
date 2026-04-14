@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -20,10 +21,10 @@ type GatewayRunner struct {
 
 // NewGatewayRunner creates a runner for the given instance.
 func NewGatewayRunner(inst config.Instance) (*GatewayRunner, error) {
-	be := backend.MustGet(inst.ClawType)
+	be := backend.MustGet(inst.GetClawType())
 
 	// Resolve version tag (latest → actual, nightly → actual).
-	version := inst.Version
+	version := inst.GetVersion()
 	if version == "latest" || version == "nightly" {
 		tag, err := FetchLatestTag(be.Repo())
 		if err != nil {
@@ -32,7 +33,7 @@ func NewGatewayRunner(inst config.Instance) (*GatewayRunner, error) {
 		version = tag
 	}
 
-	binPath, err := VersionBinaryPath(inst.ClawType, version, be.GatewayBinary())
+	binPath, err := VersionBinaryPath(inst.GetClawType(), version, be.GatewayBinary())
 	if err != nil {
 		return nil, fmt.Errorf("find binary: %w", err)
 	}
@@ -46,14 +47,14 @@ func NewGatewayRunner(inst config.Instance) (*GatewayRunner, error) {
 
 // Status returns the running status and PID for the instance.
 func Status(inst config.Instance) (running bool, pidData *backend.PidData, err error) {
-	be := backend.MustGet(inst.ClawType)
-	p, running, err := be.IsRunning(inst.WorkDir)
+	be := backend.MustGet(inst.GetClawType())
+	p, running, err := be.IsRunning(inst.GetWorkDir())
 	if err != nil || !running {
 		return running, nil, err
 	}
 	// Try to get extended status detail (port, host, version).
 	pidData = &backend.PidData{PID: p}
-	if detail, err := be.StatusDetail(inst.WorkDir); err == nil {
+	if detail, err := be.StatusDetail(inst.GetWorkDir()); err == nil {
 		pidData.Port = detail.Port
 		pidData.Host = detail.Host
 		pidData.Version = detail.Version
@@ -63,13 +64,38 @@ func Status(inst config.Instance) (running bool, pidData *backend.PidData, err e
 
 // Start launches the gateway process for the instance.
 func (r *GatewayRunner) Start() error {
-	return r.Backend.Start(r.Instance, r.BinaryPath)
+	if err := r.Backend.Start(r.Instance, r.BinaryPath); err != nil {
+		return err
+	}
+	if info := r.Backend.GatherInfo(r.Instance.GetWorkDir()); len(info) > 0 {
+		if err := config.UpdateInstanceInfo(r.Instance.GetName(), info); err != nil {
+			return fmt.Errorf("update instance info: %w", err)
+		}
+	}
+	return nil
 }
 
 // Stop terminates the gateway process for the instance.
 func Stop(inst config.Instance) error {
-	be := backend.MustGet(inst.ClawType)
+	be := backend.MustGet(inst.GetClawType())
 	return be.Stop(inst)
+}
+
+// ReconcileInstanceForStart prepares an instance before start/restart.
+func ReconcileInstanceForStart(ctx context.Context, cfg *config.Config, inst config.Instance) (config.Instance, error) {
+	spec := backend.MustGetSpec(inst.GetClawType())
+	updated, changed, err := spec.Configurator.ReconcileInstance(ctx, cfg, inst)
+	if err != nil {
+		return nil, err
+	}
+	if !changed {
+		return updated, nil
+	}
+	cfg.Instances[inst.GetName()] = updated
+	if err := config.Save(cfg); err != nil {
+		return nil, fmt.Errorf("save reconciled config: %w", err)
+	}
+	return updated, nil
 }
 
 // isProcessRunning checks if a process with the given PID is alive.

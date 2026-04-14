@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -25,8 +26,12 @@ func NewStartCommand() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found", name)
 			}
-			if _, err := backend.Get(inst.ClawType); err != nil {
+			if _, err := backend.Get(inst.GetClawType()); err != nil {
 				return err
+			}
+			inst, err = ReconcileInstanceForStart(context.Background(), cfg, inst)
+			if err != nil {
+				return fmt.Errorf("reconcile instance: %w", err)
 			}
 
 			runner, err := NewGatewayRunner(inst)
@@ -34,16 +39,9 @@ func NewStartCommand() *cobra.Command {
 				return fmt.Errorf("prepare runner: %w", err)
 			}
 
-			fmt.Printf("Starting %s (type=%s, version=%s)...\n", name, inst.ClawType, inst.Version)
+			fmt.Printf("Starting %s (type=%s, version=%s)...\n", name, inst.GetClawType(), inst.GetVersion())
 			if err := runner.Start(); err != nil {
 				return fmt.Errorf("start failed: %w", err)
-			}
-
-			// Gather backend-specific info after successful start
-			if info := runner.Backend.GatherInfo(inst.WorkDir); len(info) > 0 {
-				if err := config.UpdateInstanceInfo(name, info); err != nil {
-					fmt.Printf("warning: failed to update instance info: %v\n", err)
-				}
 			}
 
 			fmt.Printf("Started %s\n", name)

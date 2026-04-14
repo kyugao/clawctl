@@ -58,8 +58,8 @@ func getInstanceOrFail(name string) (string, config.Instance) {
 		os.Exit(1)
 	}
 	// Validate claw_type is known.
-	if _, err := backend.Get(inst.ClawType); err != nil {
-		printErr("instance %q has unknown claw_type %q: %v", name, inst.ClawType, err)
+	if _, err := backend.Get(inst.GetClawType()); err != nil {
+		printErr("instance %q has unknown claw_type %q: %v", name, inst.GetClawType(), err)
 		os.Exit(1)
 	}
 	return name, inst

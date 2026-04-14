@@ -26,7 +26,7 @@ func NewDeleteCommand() *cobra.Command {
 			}
 
 			if !force {
-				fmt.Printf("Move instance %q to trash? (work_dir=%s)\n", name, inst.WorkDir)
+				fmt.Printf("Move instance %q to trash? (work_dir=%s)\n", name, inst.GetWorkDir())
 				fmt.Print("Type 'yes' to confirm: ")
 				var confirm string
 				fmt.Scanln(&confirm)

@@ -25,10 +25,10 @@ func NewResetCommand() *cobra.Command {
 				return fmt.Errorf("instance %q not found", name)
 			}
 
-			be := backend.MustGet(inst.ClawType)
+			be := backend.MustGet(inst.GetClawType())
 			if err := be.ResetWorkspace(inst); err != nil {
 				if err == backend.ErrNotSupported {
-					return fmt.Errorf("reset is not supported for %s type", inst.ClawType)
+					return fmt.Errorf("reset is not supported for %s type", inst.GetClawType())
 				}
 				return fmt.Errorf("reset failed: %w", err)
 			}

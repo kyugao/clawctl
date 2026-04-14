@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -24,21 +25,20 @@ func NewCreateCommand() *cobra.Command {
 			if clawType == "" {
 				return fmt.Errorf("--type is required")
 			}
-			be, err := backend.Get(clawType)
+			spec, err := backend.GetSpec(clawType)
 			if err != nil {
 				return err
 			}
-			inst := config.NewInstance(clawType, name, port, version, workDir)
-			if inst.Version == "" {
-				inst.Version = "latest"
-			}
-
 			cfg, err := config.Load()
 			if err != nil {
 				return fmt.Errorf("load config: %w", err)
 			}
 			if _, ok := cfg.Instances[name]; ok {
 				return fmt.Errorf("instance %q already exists", name)
+			}
+			inst, err := spec.Configurator.AllocateInstance(context.Background(), cfg, name, port, version, workDir)
+			if err != nil {
+				return fmt.Errorf("allocate instance: %w", err)
 			}
 			cfg.Instances[name] = inst
 			if cfg.Default == "" {
@@ -49,14 +49,14 @@ func NewCreateCommand() *cobra.Command {
 			}
 
 			// Init work_dir via backend.
-			if err := be.InitWorkDir(inst); err != nil {
+			if err := spec.Backend.InitWorkDir(inst); err != nil {
 				return fmt.Errorf("init work_dir: %w", err)
 			}
 
 			fmt.Printf("Instance %q created (type=%s, version=%s, port=%d, work_dir=%s)\n",
-				name, clawType, inst.Version, inst.Port, inst.WorkDir)
-			if be.GatewayBinary() != "" {
-				fmt.Printf("  gateway binary: %s\n", be.GatewayBinary())
+				name, inst.GetClawType(), inst.GetVersion(), inst.GetPort(), inst.GetWorkDir())
+			if spec.Backend.GatewayBinary() != "" {
+				fmt.Printf("  gateway binary: %s\n", spec.Backend.GatewayBinary())
 			}
 			fmt.Printf("  Run 'clawctl reset %s' to initialize workspace templates.\n", name)
 			return nil

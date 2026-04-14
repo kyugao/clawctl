@@ -10,27 +10,48 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 func init() {
-	Register("zero", &zeroclawBackend{})
+	b := &zeroclawBackend{}
+	Register("zero", BackendSpec{Backend: b, Configurator: b})
 }
 
 type zeroclawBackend struct{}
+
+func (b *zeroclawBackend) AllocateInstance(_ context.Context, cfg *config.Config, name string, explicitPort int, version, workDir string) (config.Instance, error) {
+	port := explicitPort
+	if port == 0 {
+		var err error
+		port, err = allocatePort(18792, collectReservedPorts(cfg))
+		if err != nil {
+			return nil, err
+		}
+	} else if !isPortAvailable(port) {
+		return nil, fmt.Errorf("port %d is already in use", port)
+	}
+	return config.NewInstance("zero", name, port, version, workDir), nil
+}
+
+func (b *zeroclawBackend) ReconcileInstance(_ context.Context, _ *config.Config, inst config.Instance) (config.Instance, bool, error) {
+	return inst, false, nil
+}
 
 // PIDFilePath is kept for interface compliance but not used internally.
 func (b *zeroclawBackend) PIDFilePath(workDir string) string {
 	return filepath.Join(workDir, ".zeroclaw.pid")
 }
 
-func (b *zeroclawBackend) Type() string    { return "zero" }
-func (b *zeroclawBackend) Repo() string    { return "zeroclaw-labs/zeroclaw" }
+func (b *zeroclawBackend) Type() string     { return "zero" }
+func (b *zeroclawBackend) Repo() string     { return "zeroclaw-labs/zeroclaw" }
 func (b *zeroclawBackend) DefaultPort() int { return 18792 }
 func (b *zeroclawBackend) BinaryNames() []string {
 	return []string{"zeroclaw"}
 }
 func (b *zeroclawBackend) GatewayBinary() string { return "zeroclaw" }
-func (b *zeroclawBackend) GatewayArgs() []string  { return []string{"daemon"} }
+func (b *zeroclawBackend) GatewayArgs() []string { return []string{"daemon"} }
 
 // findDaemonPid finds the zeroclaw daemon process PID by matching workDir in process arguments.
 func (b *zeroclawBackend) findDaemonPid(workDir string) int {

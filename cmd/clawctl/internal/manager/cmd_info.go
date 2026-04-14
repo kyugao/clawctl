@@ -47,13 +47,16 @@ func NewInfoCommand() *cobra.Command {
 
 func printInstance(name string, inst config.Instance, isDefault bool) {
 	fmt.Printf("Instance: %s%s\n", name, map[bool]string{true: " (default)"}[isDefault])
-	fmt.Printf("  Type:    %s\n", inst.ClawType)
-	fmt.Printf("  Version: %s\n", inst.Version)
-	fmt.Printf("  Port:    %d\n", inst.Port)
-	fmt.Printf("  WorkDir: %s\n", inst.WorkDir)
-	fmt.Printf("  Created: %s\n", inst.CreatedAt)
-	if _, err := os.Stat(inst.WorkDir); os.IsNotExist(err) {
+	fmt.Printf("  Type:    %s\n", inst.GetClawType())
+	fmt.Printf("  Version: %s\n", inst.GetVersion())
+	fmt.Printf("  Port:    %d\n", inst.GetPort())
+	fmt.Printf("  WorkDir: %s\n", inst.GetWorkDir())
+	fmt.Printf("  Created: %s\n", inst.GetCreatedAt())
+	if _, err := os.Stat(inst.GetWorkDir()); os.IsNotExist(err) {
 		fmt.Printf("  Status:  work_dir missing\n")
+	}
+	for _, line := range instanceDetailLines(inst) {
+		fmt.Println(line)
 	}
 	fmt.Println()
 }

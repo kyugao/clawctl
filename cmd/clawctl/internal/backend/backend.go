@@ -1,10 +1,13 @@
 package backend
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"syscall"
+
+	"github.com/kyugao/clawctl/cmd/clawctl/internal/config"
 )
 
 // ErrNotSupported is returned when a backend doesn't support an operation.
@@ -64,27 +67,42 @@ type Backend interface {
 	GatherInfo(workDir string) map[string]any
 }
 
-// backendEntry holds a backend with its name for registration.
-type backendEntry struct {
-	name string
-	Backend
+// InstanceConfigurator creates backend-specific instances.
+type InstanceConfigurator interface {
+	AllocateInstance(ctx context.Context, cfg *config.Config, name string, explicitPort int, version, workDir string) (config.Instance, error)
+	ReconcileInstance(ctx context.Context, cfg *config.Config, inst config.Instance) (config.Instance, bool, error)
 }
 
-// registry holds all registered backends by name.
-var registry = make(map[string]Backend)
+// BackendSpec bundles process management and instance configuration responsibilities.
+type BackendSpec struct {
+	Backend      Backend
+	Configurator InstanceConfigurator
+}
+
+// registry holds all registered backend specs by name.
+var registry = make(map[string]BackendSpec)
 
 // Register registers a backend with its name. Called by each backend's init().
-func Register(name string, b Backend) {
+func Register(name string, b BackendSpec) {
 	registry[name] = b
 }
 
 // Get returns the Backend for a given type name.
 func Get(t string) (Backend, error) {
-	b, ok := registry[t]
+	spec, ok := registry[t]
 	if !ok {
 		return nil, fmt.Errorf("unknown backend: %q", t)
 	}
-	return b, nil
+	return spec.Backend, nil
+}
+
+// GetSpec returns the full BackendSpec for a given type name.
+func GetSpec(t string) (BackendSpec, error) {
+	spec, ok := registry[t]
+	if !ok {
+		return BackendSpec{}, fmt.Errorf("unknown backend: %q", t)
+	}
+	return spec, nil
 }
 
 // MustGet returns the Backend for a given type name, panics if not found.
@@ -94,6 +112,15 @@ func MustGet(t string) Backend {
 		panic(err)
 	}
 	return b
+}
+
+// MustGetSpec returns the BackendSpec for a given type name, panics if not found.
+func MustGetSpec(t string) BackendSpec {
+	spec, err := GetSpec(t)
+	if err != nil {
+		panic(err)
+	}
+	return spec
 }
 
 // KnownTypes returns the list of all registered backend type names.

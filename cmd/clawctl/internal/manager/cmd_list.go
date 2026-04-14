@@ -22,11 +22,11 @@ func NewListCommand() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintf(w, "NAME\tTYPE\tPORT\tVERSION\tSTATUS\tWORK_DIR\n")
+			fmt.Fprintf(w, "NAME\tTYPE\tPORTS\tVERSION\tSTATUS\tWORK_DIR\n")
 
 			for name, inst := range cfg.Instances {
-				be := backend.MustGet(inst.ClawType)
-				pid, running, _ := be.IsRunning(inst.WorkDir)
+				be := backend.MustGet(inst.GetClawType())
+				pid, running, _ := be.IsRunning(inst.GetWorkDir())
 				status := "stopped"
 				if running {
 					status = fmt.Sprintf("running (PID %d)", pid)
@@ -35,8 +35,8 @@ func NewListCommand() *cobra.Command {
 				if name == cfg.Default {
 					marker = "* "
 				}
-				fmt.Fprintf(w, "%s%s\t%s\t%d\t%s\t%s\t%s\n",
-					marker, name, inst.ClawType, inst.Port, inst.Version, status, inst.WorkDir)
+				fmt.Fprintf(w, "%s%s\t%s\t%s\t%s\t%s\t%s\n",
+					marker, name, inst.GetClawType(), instancePortSummary(inst), inst.GetVersion(), status, inst.GetWorkDir())
 			}
 			w.Flush()
 			return nil

@@ -31,7 +31,7 @@ func NewLogsCommand() *cobra.Command {
 				return fmt.Errorf("instance %q not found", name)
 			}
 
-			logPath := filepath.Join(inst.WorkDir, ".gateway.log")
+			logPath := filepath.Join(inst.GetWorkDir(), ".gateway.log")
 			return showLogs(logPath, follow)
 		},
 	}

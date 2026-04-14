@@ -10,11 +10,11 @@ import (
 
 // TrashItem represents a soft-deleted instance.
 type TrashItem struct {
-	ID           string  `json:"id"`            // name-timestamp
-	InstanceName string  `json:"instance_name"` // original instance name
-	Instance     Instance `json:"instance"`      // full instance config for restore
-	TrashPath    string  `json:"trash_path"`   // absolute path in trash
-	DeletedAt    string  `json:"deleted_at"`   // RFC3339 timestamp
+	ID           string         `json:"id"`            // name-timestamp
+	InstanceName string         `json:"instance_name"` // original instance name
+	Instance     InstanceRecord `json:"instance"`      // full instance config for restore
+	TrashPath    string         `json:"trash_path"`    // absolute path in trash
+	DeletedAt    string         `json:"deleted_at"`    // RFC3339 timestamp
 }
 
 // TrashMeta holds all trash items.
@@ -101,7 +101,7 @@ func MoveToTrash(name string, inst Instance) (*TrashItem, error) {
 	trashPath := filepath.Join(trashDir, id)
 
 	// Move the directory.
-	if err := os.Rename(inst.WorkDir, trashPath); err != nil {
+	if err := os.Rename(inst.GetWorkDir(), trashPath); err != nil {
 		return nil, fmt.Errorf("move to trash: %w", err)
 	}
 
@@ -113,7 +113,7 @@ func MoveToTrash(name string, inst Instance) (*TrashItem, error) {
 	item := &TrashItem{
 		ID:           id,
 		InstanceName: name,
-		Instance:     inst,
+		Instance:     inst.AsRecord(),
 		TrashPath:    absTrashPath,
 		DeletedAt:    time.Now().UTC().Format(time.RFC3339),
 	}
@@ -195,7 +195,7 @@ func RestoreFromTrash(id string) (string, error) {
 	// Restore config entry.
 	cfg, err := Load()
 	if err == nil {
-		cfg.Instances[item.InstanceName] = item.Instance
+		cfg.Instances[item.InstanceName] = newInstanceFromRecord(item.Instance)
 		Save(cfg) // best effort
 	}
 
