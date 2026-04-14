@@ -107,3 +107,32 @@ func TestPicoclawGatherInfoParsesRuntimeToken(t *testing.T) {
 		t.Fatalf("expected parsed dashboard token abc123, got %q, ok=%v", token, ok)
 	}
 }
+
+func TestPicoclawGatherInfoUsesManualLauncherTokenWhenPresent(t *testing.T) {
+	workDir := t.TempDir()
+	logPath := filepath.Join(workDir, ".gateway.log")
+	content := "something\nDashboard token (this run): dynamic-token\n"
+	if err := os.WriteFile(logPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("write log file: %v", err)
+	}
+
+	launcherConfig := `{"launcher_token":"manual-token"}`
+	if err := os.WriteFile(filepath.Join(workDir, "launcher-config.json"), []byte(launcherConfig), 0o644); err != nil {
+		t.Fatalf("write launcher-config.json: %v", err)
+	}
+
+	info := (&picoclawBackend{}).GatherInfo(workDir)
+	inst := config.NewInstanceFromRecord(config.InstanceRecord{
+		Name:      "pico1",
+		ClawType:  "picoclaw",
+		WorkDir:   workDir,
+		Port:      18800,
+		Version:   "latest",
+		CreatedAt: "2026-04-14T00:00:00Z",
+		Info:      info,
+	})
+
+	if token, ok := config.GetInstanceInfoString(inst, "runtime", "dashboard_token"); !ok || token != "manual-token" {
+		t.Fatalf("expected manual launcher token to be written back, got %q, ok=%v", token, ok)
+	}
+}

@@ -264,6 +264,10 @@ func (b *picoclawBackend) ResetWorkspace(inst InstanceInfo) error {
 // GatherInfo parses the gateway log and returns instance info (e.g., dashboard token).
 func (b *picoclawBackend) GatherInfo(workDir string) map[string]any {
 	info := make(map[string]any)
+	if token, ok := b.readManualLauncherToken(workDir); ok {
+		info = config.SetInfoPath(info, token, "runtime", "dashboard_token")
+		return info
+	}
 
 	logPath := filepath.Join(workDir, ".gateway.log")
 	data, err := os.ReadFile(logPath)
@@ -290,6 +294,24 @@ func (b *picoclawBackend) GatherInfo(workDir string) map[string]any {
 	}
 
 	return info
+}
+
+func (b *picoclawBackend) readManualLauncherToken(workDir string) (string, bool) {
+	configPath := filepath.Join(workDir, "launcher-config.json")
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", false
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return "", false
+	}
+	token, ok := cfg["launcher_token"].(string)
+	token = strings.TrimSpace(token)
+	if !ok || token == "" {
+		return "", false
+	}
+	return token, true
 }
 
 func (b *picoclawBackend) ensureConfigFile(inst InstanceInfo) (bool, error) {
