@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -33,7 +34,10 @@ func (b *zeroclawBackend) GatewayArgs() []string  { return []string{"daemon"} }
 
 // findDaemonPid finds the zeroclaw daemon process PID by matching workDir in process arguments.
 func (b *zeroclawBackend) findDaemonPid(workDir string) int {
-	out, err := exec.Command("ps", "-axo", "pid,args").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "ps", "-axo", "pid,args")
+	out, err := cmd.Output()
 	if err != nil {
 		return 0
 	}

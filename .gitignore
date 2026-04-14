@@ -1,6 +1,7 @@
 # Binary
 /clawctl
 /clawctl.exe
+/clawctl_test
 
 # IDE
 .idea/

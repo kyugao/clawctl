@@ -26,10 +26,9 @@ func NewListCommand() *cobra.Command {
 
 			for name, inst := range cfg.Instances {
 				be := backend.MustGet(inst.ClawType)
-				_, running, _ := be.IsRunning(inst.WorkDir)
+				pid, running, _ := be.IsRunning(inst.WorkDir)
 				status := "stopped"
 				if running {
-					pid, _, _ := be.IsRunning(inst.WorkDir)
 					status = fmt.Sprintf("running (PID %d)", pid)
 				}
 				marker := "  "
